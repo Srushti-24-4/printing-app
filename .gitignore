@@ -1,21 +1,6 @@
-# Virtual Environment (The biggest one - do not upload!)
 venv/
-ENV/
-env/
-
-# Python cache (Temporary files Python creates to run faster)
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Environment variables (Where your MySQL passwords live)
-.env
-
-# Database files (If you use SQLite locally)
-*.db
 instance/
+.env
+*.pyc
 
-# IDE settings (VS Code specific settings)
-.vscode/
-.idea/
