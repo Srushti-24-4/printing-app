@@ -6,19 +6,25 @@ function MyOrders() {
 
       {/* Navbar */}
       <div className="navbar">
-        <h2 className="logo">Campus Stationery</h2>
 
-        <div className="nav-links">
-          <span>Products</span>
-          <span>Printing</span>
-          <span className="active">My Orders</span>
-        </div>
+  <h2 className="logo">Campus Stationery</h2>
 
-        <div className="nav-icons">
-          <span>🛒</span>
-          <span>👤</span>
-        </div>
-      </div>
+  <div className="nav-right">
+
+    <div className="nav-links">
+      <span>Products</span>
+      <span>Printing</span>
+      <span className="active">My Orders</span>
+    </div>
+
+    <div className="nav-icons">
+      <span>🛒</span>
+      <span>👤</span>
+    </div>
+
+  </div>
+
+</div>
 
       {/* Page Header */}
       <div className="orders-header">

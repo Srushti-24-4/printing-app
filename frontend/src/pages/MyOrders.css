@@ -4,6 +4,21 @@
 }
 
 /* Navbar */
+.nav-right{
+  display:flex;
+  align-items:center;
+  gap:30px;
+}
+
+.nav-links span{
+  margin:0 10px;
+  cursor:pointer;
+}
+
+.nav-icons span{
+  margin-left:10px;
+  cursor:pointer;
+}
 
 .navbar {
   background: white;
@@ -19,7 +34,7 @@
 }
 
 .nav-links span {
-  margin: 0 16px;
+  margin-left: 20px;
   cursor: pointer;
 }
 
