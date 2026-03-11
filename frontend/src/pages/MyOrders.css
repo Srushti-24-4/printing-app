@@ -1,0 +1,75 @@
+.orders-container {
+  min-height: 100vh;
+  background: #f7f9fc;
+}
+
+/* Navbar */
+
+.navbar {
+  background: white;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.logo {
+  color: #5b5bff;
+}
+
+.nav-links span {
+  margin: 0 16px;
+  cursor: pointer;
+}
+
+.nav-links .active {
+  background: black;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.nav-icons span {
+  margin-left: 16px;
+  cursor: pointer;
+}
+
+/* Header */
+
+.orders-header {
+  padding: 32px;
+}
+
+.orders-header h1 {
+  font-size: 36px;
+  margin-bottom: 6px;
+}
+
+.orders-header p {
+  color: #6b7280;
+}
+
+/* Orders Box */
+
+.orders-box {
+  margin: 0 32px;
+  background: white;
+  border-radius: 16px;
+  padding: 60px 0;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+}
+
+.icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.empty-state h3 {
+  margin-bottom: 6px;
+}
+
+.empty-state p {
+  color: #6b7280;
+}
