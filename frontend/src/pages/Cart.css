@@ -1,0 +1,131 @@
+.bill-summary {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  margin-top: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.bill-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.grand-total {
+  font-size: 1.4rem;
+  color: #764ba2;
+  margin-top: 10px;
+}
+
+.checkout-btn {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f1f3f5;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid #dee2e6;
+  width: fit-content; /* ✅ This prevents the bar from stretching! */
+  margin: 0 auto; /* Centers the control in the middle space */
+}
+
+
+
+.qty-number {
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+
+
+.cart-item {
+  display: flex;
+  align-items: center; /* Vertically centers everything */
+  justify-content: space-between; /* Pushes content to the ends */
+  padding: 15px;
+  background: #ffffff;
+  border-bottom: 1px solid #eee;
+  gap: 20px;
+}
+
+.item-info {
+  flex: 2; /* Takes up most of the space on the left */
+  display: flex;
+  flex-direction: column;
+}
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f1f3f5;
+  padding: 5px 12px;
+  border-radius: 20px;
+  width: fit-content; /* ✅ This prevents the bar from stretching! */
+  margin: 0 auto; /* Centers the control in the middle space */
+}
+
+.item-subtotal {
+  flex: 1;
+  text-align: right; /* ✅ Pushes price to the far right */
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.remove-btn-icon {
+  margin-left: 10px; /* Space after the price */
+}
+
+.remove-btn-icon:hover {
+  background: #f56565;
+  color: white;
+}
+
+.print-item {
+  border-left: 4px solid #667eea;
+  background-color: #f8faff !important;
+}
+
+.print-details {
+  font-size: 0.8rem;
+  color: #718096;
+  display: block;
+}
+
+.empty-msg {
+  color: #a0aec0;
+  font-style: italic;
+  text-align: center;
+  padding: 10px;
+}
+
+.print-item {
+  border-left: 5px solid #28a745; /* Success Green */
+  background-color: #f0fff4 !important; /* Very light green */
+}
+
+.ready-badge {
+  background: #28a745;
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-left: 10px;
+}

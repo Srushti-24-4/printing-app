@@ -1,6 +1,36 @@
 from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
+
+
+
+class PrintOrder(db.Model):
+    __tablename__ = 'print_orders'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    order_token = db.Column(db.String(10), unique=True, nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    pages = db.Column(db.Integer, nullable=False)
+    copies = db.Column(db.Integer, nullable=False)
+    total_price = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(50), default='Pending')
+    timestamp = db.Column(db.DateTime, default=db.func.now())
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'order_token': self.order_token,
+            'filename': self.filename,
+            'pages': self.pages,
+            'copies': self.copies,
+            'total_price': float(self.total_price),
+            'status': self.status,
+            'timestamp': self.timestamp.isoformat()
+        }
+
+
+
+
 class User(db.Model):
     __tablename__ = 'Users'
     user_id = db.Column(db.Integer, primary_key=True)
