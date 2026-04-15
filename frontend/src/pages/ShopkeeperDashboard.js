@@ -4,32 +4,8 @@ import "./ShopkeeperDashboard.css";
 
 function ShopkeeperDashboard() {
   const [orders, setOrders] = useState([]);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [completedToday, setCompletedToday] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-
+  const [stats, setStats] = useState({ pending: 0, completed: 0, revenue: 0 });
   const API_BASE_URL = "http://127.0.0.1:5000";
-
-
-
-const clearDoneOrders = async () => {
-  if (window.confirm("Are you sure you want to clear all completed orders from history?")) {
-    try {
-      const response = await fetch("http://127.0.0.1:5000/api/admin/orders/clear-completed", {
-        method: "DELETE",
-      });
-      if (response.ok) {
-        alert("History Cleared!");
-        loadOrders(); // Refresh the list
-      }
-    } catch (error) {
-      console.error("Error clearing orders:", error);
-    }
-  }
-};
-
-
-
 
   const loadOrders = async () => {
     try {
@@ -37,146 +13,106 @@ const clearDoneOrders = async () => {
       const data = await response.json();
       setOrders(data);
 
-      // Stats Calculation - Use "total" because that's what Flask sends
+      // Stats Calculation
       const pending = data.filter(o => o.status === "Pending").length;
       const completed = data.filter(o => o.status === "Done").length;
-      
-      // FIX: Changed o.price to o.total
       const revenue = data.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
-
-      setPendingCount(pending);
-      setCompletedToday(completed);
-      setTotalRevenue(revenue);
+      setStats({ pending, completed, revenue });
     } catch (error) {
-      console.error("Backend Error: Check if Flask is running.");
+      console.error("Dashboard Sync Error:", error);
     }
   };
 
   useEffect(() => {
     loadOrders();
-    const interval = setInterval(loadOrders, 2000); // Polling for real-time updates
+    const interval = setInterval(loadOrders, 3000); 
     return () => clearInterval(interval);
   }, []);
 
   const handleDownload = (filename) => {
-    if (!filename) return alert("File not found");
+    if (!filename) return alert("No file found");
     window.open(`${API_BASE_URL}/api/download/${filename}`, "_blank");
   };
 
-  const markCompleted = async (orderId) => {
+  const updateStatus = async (orderId, newStatus) => {
     try {
-      // Update Database
-      const res = await fetch(`${API_BASE_URL}/api/order/complete/${orderId}`, { method: 'POST' });
-      if (res.ok) {
-        // Update Local State immediately for smooth UI
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: "Done" } : o));
-      }
+      const res = await fetch(`${API_BASE_URL}/api/admin/update-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, status: newStatus })
+      });
+      if (res.ok) loadOrders();
     } catch (error) {
-      console.error("Failed to update status");
+      console.error("Status Update Failed");
     }
   };
 
-  const pendingOrders = orders.filter(o => o.status === "Pending");
-  const completedOrders = orders.filter(o => o.status === "Done");
-
   return (
     <div className="shop-container">
-      {/* Navbar */}
       <div className="shop-navbar">
-        <h2>Shopkeeper Dashboard</h2>
-        <div className="nav-links">
-          <Link to="/shopkeeper-dashboard" style={{textDecoration: 'none'}}>
-            <span className="active">Orders Queue</span>
-          </Link>
-          
-          <button className="clear-history-btn" onClick={clearDoneOrders}>
-  🗑️ Clear Completed History
-</button>
+        <h2>Shopkeeper Hub</h2>
+        <div className="nav-stats">
+          <span>Pending: <strong>{stats.pending}</strong></span>
+          <span>Revenue: <strong>₹{stats.revenue.toFixed(2)}</strong></span>
         </div>
       </div>
 
-      {/* Header */}
-      <div className="shop-header">
-        <h1>Orders Queue</h1>
-        <p>Real-time updates: New orders appear automatically</p>
-      </div>
+      <div className="order-grid">
+        {orders.filter(o => o.status === "Pending").map((order) => (
+          <div key={order.id} className="shop-card">
+            <div className="card-header">
+              <span className="moodle-id">ID: {order.moodle_id}</span>
+              <span className="status-label">{order.status}</span>
+            </div>
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <p>Pending Orders</p>
-          <h2>{pendingCount}</h2>
-          <span>Awaiting fulfillment</span>
-        </div>
-        <div className="stat-card">
-          <p>Completed Today</p>
-          <h2>{completedToday}</h2>
-          <span>Successfully fulfilled</span>
-        </div>
-        <div className="stat-card">
-          <p>Total Revenue</p>
-          <h2>₹{totalRevenue.toFixed(2)}</h2>
-          <span>All time</span>
-        </div>
-      </div>
+            <div className="card-content">
+              {/* 1. PRINT DETAILS */}
+              {order.prints && order.prints.length > 0 && (
+                <div className="detail-section">
+                  <h4>📄 Documents to Print</h4>
+                  {order.prints.map((p, idx) => (
+                    <div key={idx} className="print-item">
+                      <div className="file-info">
+                        <p className="file-name">{p.file}</p>
+                        <p className="file-meta">{p.copies} copies</p>
+                      </div>
+                      <button 
+                        className="dl-btn" 
+                        onClick={() => handleDownload(p.file)}
+                      >
+                        Download
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-      {/* Pending Orders */}
-      <h2 className="section-title">Pending Orders ({pendingCount})</h2>
-      
-      <div className="pending-box">
-        {pendingOrders.length === 0 ? (
-          <div className="empty-state">
-            <div className="check">✔</div>
-            <p>All caught up!</p>
-            <span>No pending orders at the moment</span>
+              {/* 2. STATIONERY DETAILS */}
+              {order.items && order.items.length > 0 && (
+                <div className="detail-section">
+                  <h4>🛒 Stationery Items</h4>
+                  <ul>
+                    {order.items.map((item, idx) => (
+                      <li key={idx}>
+                        {item.name} <span className="qty-tag">x{item.qty}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="card-footer">
+              <div className="price-tag">Total: ₹{order.total.toFixed(2)}</div>
+              <button 
+                className="ready-btn" 
+                onClick={() => updateStatus(order.id, "Done")}
+              >
+                Mark Ready
+              </button>
+            </div>
           </div>
-        ) : (
-          pendingOrders.map(order => (
-            <div key={order.id} className="order-card">
-              <div className="order-header">
-                <h3>PRINT #{order.token || order.id}</h3>
-                <span className="order-time">Active</span>
-              </div>
-              
-              <div className="order-details">
-                <p>📄 <strong>File:</strong> {order.file}</p>
-                <p>📊 {order.pages} pages × {order.copies} copies</p>
-                <p><strong>Total: ₹{order.price.toFixed(2)}</strong></p>
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: "flex", gap: "1rem" }}>
-                <button 
-                  className="complete-btn" 
-                  style={{ background: "linear-gradient(45deg, #667eea, #764ba2)" }}
-                  onClick={() => handleDownload(order.file)}
-                >
-                  Download PDF
-                </button>
-                <button 
-                  className="complete-btn" 
-                  onClick={() => markCompleted(order.id)}
-                >
-                  Mark as Done
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Recently Completed */}
-      <h2 className="section-title">Recently Completed</h2>
-      <div className="completed-list">
-        {completedOrders.length === 0 ? (
-          <p style={{ textAlign: "center", color: "#718096" }}>No orders completed yet today.</p>
-        ) : (
-          completedOrders.slice().reverse().slice(0, 5).map(order => (
-            <div key={order.id} className="completed-item">
-              PRINT #{order.token || order.id} — ₹{order.price.toFixed(2)} — COMPLETED
-            </div>
-          ))
-        )}
+        ))}
       </div>
     </div>
   );

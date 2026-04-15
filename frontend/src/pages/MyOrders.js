@@ -6,89 +6,79 @@ function MyOrders() {
   const [orders, setOrders] = useState([]);
   const API_BASE_URL = "http://127.0.0.1:5000";
 
-  // 1. Function to fetch orders from the database
   const fetchMyOrders = async () => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user) return;
+
     try {
-      // We fetch all orders. In a real app, you'd filter by Student ID
-      const response = await fetch(`${API_BASE_URL}/api/admin/orders`);
+      const response = await fetch(`${API_BASE_URL}/api/user/orders/${user.moodle_id}`);
       const data = await response.json();
-      
-      // Sort by latest first
-      const sortedData = data.sort((a, b) => b.id - a.id);
-      setOrders(sortedData);
+      setOrders(data.sort((a, b) => b.id - a.id));
     } catch (error) {
       console.error("Error fetching orders:", error);
     }
   };
 
-  // 2. Set up real-time polling
   useEffect(() => {
-    fetchMyOrders(); // Initial load
-    const interval = setInterval(fetchMyOrders, 2000); // Check for status changes every 2s
+    fetchMyOrders();
+    const interval = setInterval(fetchMyOrders, 3000);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="orders-container">
-      {/* Navbar */}
       <div className="navbar">
-        <h2 className="logo">Campus Stationery</h2>
-        <div className="nav-right">
-          <div className="nav-links">
-            <Link to="/student-dashboard"><span>Products</span></Link>
-            <Link to="/printing-page"><span>Printing</span></Link>
-            <Link to="/my-orders"><span className="active">My Orders</span></Link>
-            <Link to="/cart"><span>🛒</span></Link>
-            <span>👤</span>
-          </div>
+        <h2>Campus Store</h2>
+        <div className="nav-links">
+          <Link to="/student-dashboard">Products</Link>
+          <Link to="/printing-page">Printing</Link>
+          <Link to="/my-orders" className="active">My Orders</Link>
+          <Link to="/cart">🛒</Link>
         </div>
       </div>
 
-      {/* Page Header */}
-      <div className="orders-header">
-        <h1>My Orders</h1>
-        <p>Track your stationery and print orders in real-time</p>
-      </div>
-
-      {/* Orders List */}
-      <div className="orders-box">
+      <div className="orders-content">
+        <h1>Your Active Tokens</h1>
         {orders.length === 0 ? (
-          <div className="empty-state">
-            <div className="icon">📦</div>
-            <h3>No orders yet</h3>
-            <p>Start shopping to see your orders here</p>
-          </div>
+          <p>No active orders. Start shopping!</p>
         ) : (
-          <div className="orders-list">
-            {orders.map((order) => (
-              <div key={order.id} className="order-card">
-                <div className="order-header">
-                  <div>
-                    {/* Using 'Print' as default type since it's a printing system */}
-                    <h3>Print Order</h3>
-                    <span className="order-id">TOKEN: {order.token || order.id}</span>
+          orders.map((order) => (
+            <div key={order.id} className="order-card">
+              <div className="order-header">
+                <h3>Token: #{order.token}</h3>
+                <span className={`status-badge ${order.status.toLowerCase()}`}>
+                  {order.status}
+                </span>
+              </div>
+
+              <div className="order-body">
+                {/* Print Jobs */}
+                {order.prints.length > 0 && (
+                  <div className="item-group">
+                    <strong>Documents:</strong>
+                    {order.prints.map((p, i) => (
+                      <p key={i}>📄 {p.file} (x{p.qty})</p>
+                    ))}
                   </div>
-                  {/* Status Badge - will turn from Pending to Done automatically */}
-                  <span className={`order-status status-${order.status.toLowerCase()}`}>
-                    {order.status}
-                  </span>
-                </div>
-                
-                <div className="order-details">
-                  <p><strong>📄 File:</strong> {order.file}</p>
-                  <p>{order.pages} pages × {order.copies} copies</p>
-                  <p className="order-price">Total: ₹{parseFloat(order.price).toFixed(2)}</p>
-                </div>
-                
-                <div className="order-meta">
-                  <span className="order-time">
-                    {/* Placeholder for timestamp if your DB has it, else 'Recent' */}
-                    Status: <strong>{order.status === "Done" ? "Ready for Pickup" : "Processing"}</strong>
-                  </span>
+                )}
+
+                {/* Stationery Items */}
+                {order.items.length > 0 && (
+                  <div className="item-group">
+                    <strong>Stationery:</strong>
+                    {order.items.map((item, i) => (
+                      <p key={i}>✏️ {item.name} (x{item.qty})</p>
+                    ))}
+                  </div>
+                )}
+                <hr />
+                <div className="total-row">
+                  <span>Final Bill:</span>
+                  <strong>₹{order.total_price.toFixed(2)}</strong>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))
         )}
       </div>
     </div>
