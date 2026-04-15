@@ -18,35 +18,6 @@ function PrintingPage() {
     };
   }, [previewUrl]);
 
-  const analyzePDF = async () => {
-    if (!file) return;
-    
-    setLoading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('copies', copies);
-    
-    try {
-      const response = await fetch('http://127.0.0.1:5000/api/order', {
-        method: 'POST',
-        body: formData
-      });
-      
-      const data = await response.json();
-      setPageCount(data.pages);
-      setTotalPrice(data.total);
-      alert(`✅ ${data.pages} pages × ₹2 × ${copies} copies = ₹${data.total}`);
-      
-    } catch (error) {
-      // Fallback estimation (roughly 400kb per page for standard PDFs)
-      const estimated = Math.max(1, Math.round(file.size / 1024 / 400));
-      setPageCount(estimated);
-      setTotalPrice(estimated * 2 * copies);
-      alert(`⚠️ Backend offline - Estimated ${estimated} pages`);
-    }
-    setLoading(false);
-  };
-
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile && selectedFile.type === "application/pdf") {
@@ -62,36 +33,58 @@ function PrintingPage() {
 
   const handleCopiesChange = (e) => {
     const val = Number(e.target.value);
-    setCopies(val > 0 ? val : 1);
+    const validCopies = val > 0 ? val : 1;
+    setCopies(validCopies);
     if (pageCount > 0) {
-      setTotalPrice(pageCount * 2 * (val > 0 ? val : 1));
+      setTotalPrice(pageCount * 2 * validCopies);
     }
   };
 
-  const generateOrderId = () => String(Math.floor(Math.random() * 90000) + 10000);
+  // ✅ ANALYZE: Sends file to Flask to count pages & create/update the "Pending" order
+  const analyzePDF = async () => {
+    if (!file) return;
+    
+    setLoading(true);
+    const user = JSON.parse(localStorage.getItem("user"));
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('copies', copies);
+    formData.append('moodle_id', user.moodle_id); 
+    
+    try {
+      const response = await fetch('http://127.0.0.1:5000/api/order', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setPageCount(data.pages);
+        setTotalPrice(data.total);
+        alert(`✅ Analysis Complete: ₹${data.total}`);
+      } else {
+        alert(data.error || "Failed to analyze PDF.");
+      }
+    } catch (error) {
+      console.error("Analysis failed:", error);
+      alert("⚠️ Backend offline - Using fallback estimation");
+      const estimated = Math.max(1, Math.round(file.size / 1024 / 400));
+      setPageCount(estimated);
+      setTotalPrice(estimated * 2 * copies);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // ✅ CONFIRM: Since analyzePDF already saved it to DB, we just redirect
   const placeOrder = () => {
     if (!file || totalPrice === 0) {
-        alert("Please analyze the file first to get the total price.");
-        return;
+      alert("Please analyze the file first to get the total price.");
+      return;
     }
     
-    const orderId = generateOrderId();
-    const order = {
-      id: orderId,
-      type: "Print",
-      fileName: file.name,
-      pages: pageCount,
-      copies: copies,
-      total: totalPrice,
-      status: "Pending",
-      timestamp: new Date().toLocaleString()
-    };
-    
-    const orders = JSON.parse(localStorage.getItem("orders") || "[]");
-    orders.unshift(order);
-    localStorage.setItem("orders", JSON.stringify(orders));
-    alert("Order Placed Successfully!");
+    alert("Print job confirmed and added to your active token!");
     navigate("/my-orders");
   };
 
@@ -101,7 +94,7 @@ function PrintingPage() {
         <h2>Campus Stationery</h2>
         <div className="nav-links">
           <Link to="/student-dashboard"><span>Products</span></Link>
-          <Link to="/printing"><span className="active">Printing</span></Link>
+          <Link to="/printing-page"><span className="active">Printing</span></Link>
           <Link to="/my-orders"><span>My Orders</span></Link>
           <Link to="/cart"><span>🛒</span></Link>
           <span>👤</span>
@@ -110,7 +103,7 @@ function PrintingPage() {
       
       <div className="banner">
         <h1>Printing Services (₹2/page)</h1>
-        <p>Upload PDF → Auto page count → Instant price</p>
+        <p>Upload PDF → Auto page count → Added to your Token</p>
       </div>
       
       <div className="printing-card" style={{ maxWidth: "600px", margin: "2rem auto", padding: "20px", background: "white", borderRadius: "12px", boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}>
@@ -158,8 +151,8 @@ function PrintingPage() {
 
             <button 
               onClick={placeOrder}
-              disabled={totalPrice === 0}
-              style={{ width: "100%", padding: "10px", backgroundColor: totalPrice === 0 ? "#ccc" : "#007bff", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}
+              disabled={totalPrice === 0 || loading}
+              style={{ width: "100%", padding: "10px", backgroundColor: (totalPrice === 0 || loading) ? "#ccc" : "#007bff", color: "white", border: "none", borderRadius: "5px", cursor: "pointer" }}
             >
               Confirm Order
             </button>

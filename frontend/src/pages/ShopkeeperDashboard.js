@@ -37,10 +37,12 @@ const clearDoneOrders = async () => {
       const data = await response.json();
       setOrders(data);
 
-      // Stats Calculation
+      // Stats Calculation - Use "total" because that's what Flask sends
       const pending = data.filter(o => o.status === "Pending").length;
       const completed = data.filter(o => o.status === "Done").length;
-      const revenue = data.reduce((sum, o) => sum + (parseFloat(o.price) || 0), 0);
+      
+      // FIX: Changed o.price to o.total
+      const revenue = data.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
 
       setPendingCount(pending);
       setCompletedToday(completed);

@@ -1,12 +1,20 @@
-.login-container {
+.auth-container {
   min-height: 100vh;
   background: linear-gradient(to bottom, #eef3ff, #e6edff);
   display: flex;
   align-items: center;
   justify-content: center;
 }
+/* Added for the navigation toggle */
+.auth-card p a:hover {
+  text-decoration: underline;
+}
 
-.login-card {
+input::placeholder {
+  color: #ccc;
+  font-size: 0.85rem;
+}
+.auth-card {
   background: white;
   padding: 32px;
   width: 360px;
@@ -27,21 +35,21 @@
   margin-bottom: 20px;
 }
 
-.login-card label {
+.auth-card label {
   display: block;
   font-size: 0.85rem;
   margin: 10px 0 4px;
 }
 
-.login-card input,
-.login-card select {
+.auth-card input,
+.auth-card select {
   width: 100%;
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #ddd;
 }
 
-.login-card button {
+.auth-card button {
   width: 100%;
   margin-top: 16px;
   padding: 12px;

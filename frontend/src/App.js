@@ -8,6 +8,7 @@ import PrintingPage from "./pages/PrintingPage";
 
 import InventoryPage from "./pages/InventoryPage";
 import Cart from "./pages/Cart";
+import Register from "./pages/Register";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Route path="/" element={<Login />} />
       <Route path="/student-dashboard" element={<StudentDashboard />} />
       <Route path="/shopkeeper-dashboard" element={<ShopkeeperDashboard />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/my-orders" element={<MyOrders />} />
       <Route path="/printing-page" element={<PrintingPage />} />
       <Route path="/cart" element={<Cart />} />

@@ -1,19 +1,47 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import "./Login.css";
 
 function Login() {
-  const [role, setRole] = useState("student");
+  const [moodleId, setMoodleId] = useState(""); // Using Moodle ID instead of email
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    
+    try {
+      const response = await fetch("http://127.0.0.1:5000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          moodle_id: moodleId, 
+          password: password 
+        }),
+      });
 
-    // For now: fake login + redirect based on role
-    if (role === "student") {
-      navigate("/student-dashboard"); // we’ll create this later
-    } else {
-      navigate("/shopkeeper-dashboard"); // we’ll create this later
+      const data = await response.json();
+
+      if (response.ok) {
+        // ✅ SAVE USER DATA: This is crucial for the rest of your app!
+        localStorage.setItem("user", JSON.stringify({
+          moodle_id: data.user.moodle_id,
+          name: data.user.name,
+          role: data.user.role
+        }));
+
+        // Redirect based on the role returned by the database
+        if (data.user.role === "Admin") {
+          navigate("/shopkeeper-dashboard");
+        } else {
+          navigate("/student-dashboard");
+        }
+      } else {
+        alert(data.error || "Login failed. Check your ID and password.");
+      }
+    } catch (error) {
+      console.error("Login Error:", error);
+      alert("Server is offline. Make sure your Flask app is running!");
     }
   };
 
@@ -21,36 +49,36 @@ function Login() {
     <div className="login-container">
       <div className="login-card">
         <h2 className="title">Campus Stationery</h2>
-        <p className="subtitle">Login to continue</p>
+        <p className="subtitle">Welcome back!</p>
 
         <form onSubmit={handleLogin}>
-          <label>Login as</label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option value="student">Student</option>
-            <option value="shopkeeper">Shopkeeper</option>
-          </select>
-
-          <label>Email</label>
+          <label>Moodle ID</label>
           <input
-            type="email"
-            placeholder={
-              role === "student"
-                ? "your.email@college.edu"
-                : "shopkeeper@store.com"
-            }
+            type="text"
+            placeholder="8-digit Moodle ID"
+            value={moodleId}
+            maxLength="8"
+            onChange={(e) => setMoodleId(e.target.value.replace(/\D/g, ""))} // Numeric only
             required
           />
 
           <label>Password</label>
-          <input type="password" placeholder="Enter your password" required />
+          <input 
+            type="password" 
+            placeholder="Enter your password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required 
+          />
 
-          <button type="submit">
-            Login as {role === "student" ? "Student" : "Shopkeeper"}
+          <button type="submit" className="login-btn">
+            Login
           </button>
         </form>
+        
+        <p className="auth-footer">
+          New student? <Link to="/register">Create an account</Link>
+        </p>
       </div>
     </div>
   );
