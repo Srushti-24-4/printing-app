@@ -106,7 +106,95 @@ body, html {
   gap: 15px;
   border: 1px solid #e2e8f0;
 }
+/* --- Sales Stats Cards --- */
+.sales-view {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
 
+.sales-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+}
+
+.sales-stat-card {
+  background: white;
+  padding: 35px 25px;
+  border-radius: 16px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.sales-stat-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Accent line on top of cards */
+.sales-stat-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: var(--primary);
+}
+
+.sales-stat-card:nth-child(2)::before {
+  background: var(--success);
+}
+
+.sales-stat-card h4 {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sales-stat-card .amt {
+  margin-top: 15px;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #1e293b;
+  display: block;
+}
+
+/* --- Header Stat Pills Fix --- */
+.nav-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-pill {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-pill strong {
+  color: var(--primary);
+}
+
+/* Responsive fix for small screens */
+@media (max-width: 1024px) {
+  .sales-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .form-row {
   display: flex;
   gap: 15px;

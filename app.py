@@ -139,13 +139,22 @@ def admin_orders():
 
 @app.route('/api/admin/inventory/delete/<int:item_id>', methods=['DELETE'])
 def delete_item(item_id):
-    item = Item.query.get(item_id)
-    if item:
+    try:
+        item = Item.query.get(item_id)
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+
+        # 1. Manually remove references in Order_Details
+        OrderDetail.query.filter_by(item_id=item_id).delete()
+        
+        # 2. Now you can safely delete the item
         db.session.delete(item)
         db.session.commit()
-        return jsonify({"message": "Deleted"}), 200
-    return jsonify({"error": "Not found"}), 404
-
+        
+        return jsonify({"message": "Item deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 @app.route('/api/order', methods=['POST'])
 def place_order():
     try:

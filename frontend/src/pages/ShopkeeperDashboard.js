@@ -102,12 +102,22 @@ function ShopkeeperDashboard() {
     loadSalesStats(); // Refresh revenue immediately if collected
   };
 
-  const deleteInventoryItem = async (id) => {
-    if(window.confirm("Delete this item?")) {
-        await fetch(`${API_BASE_URL}/api/admin/inventory/delete/${id}`, { method: 'DELETE' });
-        loadInventory();
+const deleteInventoryItem = async (itemId) => {
+  try {
+    const response = await fetch(`http://127.0.0.1:5000/api/admin/inventory/delete/${itemId}`, {
+      method: 'DELETE',
+    });
+    
+    if (response.ok) {
+      // Update UI state
+      setInventory(prev => prev.filter(item => item.id !== itemId));
+    } else {
+      console.error("Failed to delete");
     }
-  };
+  } catch (error) {
+    console.error("Connection Error:", error);
+  }
+};
 
   return (
     <div className="admin-layout">
