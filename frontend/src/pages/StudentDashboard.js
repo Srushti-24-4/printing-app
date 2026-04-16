@@ -3,16 +3,18 @@ import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import "./StudentDashboard.css";
 
-
-// Updated API Base URL
 const API_BASE_URL = "http://127.0.0.1:5000";
 
+// --- Sub-Component: Product Card ---
 function ProductCard({ item, quantity, onIncrement, onDecrement }) {
+  // Logic to determine button states based on stock
+  const isOutOfStock = item.stock <= 0;
+  const isLimitReached = quantity >= item.stock;
+
   return (
     <div className={`product-card ${item.isUrgent ? "urgent-border" : ""}`}>
-      {item.isUrgent && <span className="urgent-badge">High Demand</span>}
+      {item.isUrgent && <span className="urgent-badge">Low Stock!</span>}
       <div className="image-container">
-        {/* UPDATED: Points to the Flask upload route with a fallback */}
         <img 
           src={`${API_BASE_URL}/api/uploads/${item.image}`} 
           alt={item.name} 
@@ -27,29 +29,49 @@ function ProductCard({ item, quantity, onIncrement, onDecrement }) {
         <p className="category-label">{item.category}</p>
         <p className="price">₹{item.price}</p>
         
+        {/* Visual Stock Indicator */}
+        <p className={`stock-status ${isOutOfStock ? "text-danger" : ""}`}>
+          {isOutOfStock ? "Out of Stock" : `Available: ${item.stock}`}
+        </p>
+        
         <div className="quantity-controls">
           {quantity === 0 ? (
-            <button className="add-btn" onClick={onIncrement}>
-              Add to Cart
+            <button 
+              className={`add-btn ${isOutOfStock ? "disabled" : ""}`} 
+              onClick={onIncrement}
+              disabled={isOutOfStock}
+            >
+              {isOutOfStock ? "Sold Out" : "Add to Cart"}
             </button>
           ) : (
             <div className="stepper">
               <button className="step-btn" onClick={onDecrement}>−</button>
               <span className="qty-number">{quantity}</span>
-              <button className="step-btn" onClick={onIncrement}>+</button>
+              <button 
+                className={`step-btn ${isLimitReached ? "disabled" : ""}`} 
+                onClick={onIncrement}
+                disabled={isLimitReached}
+              >
+                +
+              </button>
             </div>
           )}
         </div>
+        {isLimitReached && !isOutOfStock && (
+          <small className="limit-msg">Max stock reached</small>
+        )}
       </div>
     </div>
   );
 }
 
+// --- Main Component ---
 export default function StudentDashboard() {
   const { cart, addToCart, removeFromCart } = useCart();
   const [filter, setFilter] = useState("All");
   const [products, setProducts] = useState([]);
 
+  // Fetch items and include stock in the local state
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/items`)
       .then(res => res.json())
@@ -59,9 +81,9 @@ export default function StudentDashboard() {
           name: item.name,
           price: item.price,
           category: item.category || "Other",
-          isUrgent: item.stock < 10,
-          // Store only the filename from the DB
-          image: item.image 
+          isUrgent: item.stock > 0 && item.stock < 10,
+          image: item.image,
+          stock: item.stock // Critical for max-qty logic
         }));
         setProducts(formattedProducts);
       })
@@ -95,7 +117,6 @@ export default function StudentDashboard() {
       </div>
 
       <div className="filter-tabs">
-        {/* Updated categories to match your Shopkeeper selection */}
         {["All", "Writing", "Sheets", "Files", "Other"].map(cat => (
           <button 
             key={cat} 
@@ -118,7 +139,12 @@ export default function StudentDashboard() {
                 key={item.id} 
                 item={item} 
                 quantity={currentQty}
-                onIncrement={() => addToCart(item)}
+                onIncrement={() => {
+                  // Double-check stock before calling context
+                  if (currentQty < item.stock) {
+                    addToCart(item);
+                  }
+                }}
                 onDecrement={() => removeFromCart(item.id)}
               />
             );

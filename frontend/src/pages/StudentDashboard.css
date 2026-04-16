@@ -53,3 +53,40 @@
 @keyframes blink {
   50% { opacity: 0.5; }
 }
+.add-btn.disabled {
+  background-color: #cbd5e1; /* Grey color */
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.add-btn.disabled:hover {
+  background-color: #cbd5e1; /* Prevent hover effects */
+}
+.stock-status {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 4px 0;
+}
+
+.text-danger {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.limit-msg {
+  color: #f59e0b;
+  font-size: 0.75rem;
+  display: block;
+  margin-top: 5px;
+}
+
+.step-btn.disabled, .add-btn.disabled {
+  background-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+  border-color: #cbd5e1;
+}
+
+.urgent-border {
+  border: 1px solid #ef4444;
+}
