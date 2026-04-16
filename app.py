@@ -6,6 +6,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from pypdf import PdfReader
+from flask import send_from_directory
 import os
 
 app = Flask(__name__)
@@ -16,7 +17,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:test1234@127.0.0.1
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 db = SQLAlchemy(app)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 # --- Models ---
 class User(db.Model):
     __tablename__ = 'Users'
@@ -27,6 +31,15 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(db.Enum('Student', 'Admin'), default='Student')
 
+class Item(db.Model):
+    __tablename__ = 'Items'
+    item_id = db.Column(db.Integer, primary_key=True)
+    item_name = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(50))
+    price_per_unit = db.Column(db.Float, nullable=False)
+    stock_qty = db.Column(db.Integer, default=0)
+    image_url = db.Column(db.String(255), nullable=True)
+
 class Order(db.Model):
     __tablename__ = 'Orders'
     order_id = db.Column(db.Integer, primary_key=True)
@@ -35,6 +48,7 @@ class Order(db.Model):
     total_price = db.Column(db.Float, default=0.0)
     status = db.Column(db.Enum('Pending', 'Processing', 'Done', 'Collected'), default='Pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ready_at = db.Column(db.DateTime, nullable=True)
     
     print_requests = db.relationship('PrintRequest', backref='order', lazy=True, cascade="all, delete-orphan")
     stationery_items = db.relationship('OrderDetail', backref='order', lazy=True, cascade="all, delete-orphan")
@@ -52,35 +66,61 @@ class OrderDetail(db.Model):
     __tablename__ = 'Order_Details'
     detail_id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('Orders.order_id'), nullable=False)
-    item_name = db.Column(db.String(100), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('Items.item_id'), nullable=False)
     quantity = db.Column(db.Integer, default=1)
-    price = db.Column(db.Float, nullable=False)
+    subtotal = db.Column(db.Float, nullable=False)
+
+# --- Utilities ---
+def seed_inventory():
+    if Item.query.first() is None:
+        items = [
+            Item(item_name="Black Pen", price_per_unit=10.0, category="Writing", stock_qty=50),
+            Item(item_name="Blue Pen", price_per_unit=10.0, category="Writing", stock_qty=50),
+            Item(item_name="Ruled Pages", price_per_unit=50.0, category="Paper", stock_qty=100)
+        ]
+        db.session.bulk_save_objects(items)
+        # Create a test student so login/orders don't fail immediately
+        if User.query.filter_by(moodle_id="24102003").first() is None:
+            test_user = User(
+                moodle_id="24102003", 
+                name="Test Student", 
+                email="test@student.com", 
+                password=generate_password_hash("password123"),
+                role="Student"
+            )
+            db.session.add(test_user)
+        db.session.commit()
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # --- Routes ---
 
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.json
-    user = User.query.filter_by(moodle_id=data.get('moodle_id')).first()
-    if user and check_password_hash(user.password, data.get('password')):
-        return jsonify({"user": {"name": user.name, "moodle_id": user.moodle_id, "role": user.role}}), 200
-    return jsonify({"error": "Invalid credentials"}), 401
+@app.route('/api/items', methods=['GET'])
+def get_items():
+    items = Item.query.all()
+    return jsonify([{
+        "id": i.item_id,
+        "name": i.item_name,
+        "price": i.price_per_unit,
+        "category": i.category,
+        "stock": i.stock_qty,
+        "image": i.image_url
+    } for i in items]), 200
 
 @app.route('/api/order', methods=['POST'])
 def place_order():
     try:
         moodle_id = request.form.get('moodle_id')
         user = User.query.filter_by(moodle_id=moodle_id).first()
-        active_order = Order.query.filter(Order.user_id == user.user_id, Order.status != 'Collected').first()
+        if not user: return jsonify({"error": "User not found"}), 404
 
+        active_order = Order.query.filter(Order.user_id == user.user_id, Order.status != 'Collected').first()
         if not active_order:
             active_order = Order(user_id=user.user_id, order_token=moodle_id)
             db.session.add(active_order)
             db.session.flush()
 
-        # Handle Print Files
+        # Print logic
         if 'file' in request.files:
             file = request.files['file']
             copies = int(request.form.get('copies', 1))
@@ -91,30 +131,70 @@ def place_order():
             db.session.add(PrintRequest(order_id=active_order.order_id, filename=file.filename, pages=pages, copies=copies, price=price))
             active_order.total_price += price
 
-        # Handle Stationery Items
+        # Stationery logic
         item_name = request.form.get('item_name')
         if item_name:
-            price = float(request.form.get('item_price', 0))
-            qty = int(request.form.get('item_qty', 1))
-            db.session.add(OrderDetail(order_id=active_order.order_id, item_name=item_name, quantity=qty, price=price*qty))
-            active_order.total_price += (price * qty)
+            item = Item.query.filter_by(item_name=item_name).first()
+            if item:
+                qty = int(request.form.get('item_qty', 1))
+                subtotal = item.price_per_unit * qty
+                db.session.add(OrderDetail(order_id=active_order.order_id, item_id=item.item_id, quantity=qty, subtotal=subtotal))
+                active_order.total_price += subtotal
 
         db.session.commit()
         return jsonify({"token": active_order.order_token, "total": active_order.total_price}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+@app.route('/api/admin/inventory/add', methods=['POST'])
+def add_item():
+    try:
+        # Check if an image file was uploaded
+        image_path = None
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and allowed_file(file.filename):
+                filename = file.filename
+                # Save it to your upload folder
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                image_path = filename # Store just the name
 
-@app.route('/api/user/orders/<moodle_id>', methods=['GET'])
-def get_user_orders(moodle_id):
-    user = User.query.filter_by(moodle_id=moodle_id).first()
-    if not user: return jsonify([]), 200
-    orders = Order.query.filter(Order.user_id == user.user_id, Order.status != 'Collected').all()
-    return jsonify([{
-        "id": o.order_id, "token": o.order_token, "status": o.status, "total_price": o.total_price,
-        "prints": [{"file": p.filename, "qty": p.copies} for p in o.print_requests],
-        "items": [{"name": i.item_name, "qty": i.quantity} for i in o.stationery_items]
-    } for o in orders]), 200
+        # Get the rest of the data from form-data (since we are sending a file)
+        new_item = Item(
+            item_name=request.form.get('name'),
+            price_per_unit=float(request.form.get('price')),
+            category=request.form.get('category'),
+            stock_qty=int(request.form.get('stock')),
+            image_url=image_path 
+        )
+        db.session.add(new_item)
+        db.session.commit()
+        return jsonify({"message": "Item added successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/update-status', methods=['POST'])
+def update_status():
+    data = request.json
+    try:
+        order = Order.query.get(data.get('order_id'))
+        if order:
+            new_status = data.get('status')
+            order.status = new_status
+            if new_status == 'Done':
+                order.ready_at = datetime.utcnow()
+            db.session.commit()
+            return jsonify({"message": "Status updated"}), 200
+        return jsonify({"error": "Order not found"}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+# Route to serve uploaded files for the shopkeeper to print
+@app.route('/api/download/<filename>')
+def download_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/api/admin/orders', methods=['GET'])
 def admin_orders():
@@ -124,36 +204,28 @@ def admin_orders():
         "moodle_id": User.query.get(o.user_id).moodle_id,
         "status": o.status,
         "total": o.total_price,
-        "items": [{"name": i.item_name, "qty": i.quantity} for i in o.stationery_items],
+        "items": [{"name": Item.query.get(i.item_id).item_name, "qty": i.quantity} for i in o.stationery_items],
         "prints": [{"file": p.filename, "copies": p.copies} for p in o.print_requests]
     } for o in orders]), 200
-
-@app.route('/api/admin/update-status', methods=['POST'])
-def update_status():
-    data = request.json
-    order = Order.query.get(data.get('order_id'))
-    if order:
-        order.status = data.get('status')
-        db.session.commit()
-        return jsonify({"message": "Status updated"}), 200
-    return jsonify({"error": "Order not found"}), 404
-
-@app.route('/api/download/<filename>')
-def download_file(filename):
+@app.route('/api/uploads/<filename>')
+def serve_image(filename):
+    # This sends the file from your actual folder on the computer to the browser
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-@app.route('/api/admin/orders/clear-completed', methods=['DELETE'])
-def clear_completed():
-    try:
-        # Cascade delete is handled by relationship definitions
-        Order.query.filter(Order.status.in_(['Done', 'Collected'])).delete(synchronize_session=False)
-        db.session.commit()
-        return jsonify({"message": "History cleared"}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+@app.route('/api/user/orders/<moodle_id>', methods=['GET'])
+def get_user_orders(moodle_id):
+    user = User.query.filter_by(moodle_id=moodle_id).first()
+    if not user: return jsonify([]), 200
+    orders = Order.query.filter(Order.user_id == user.user_id, Order.status != 'Collected').all()
+    return jsonify([{
+        "id": o.order_id, "token": o.order_token, "status": o.status, "total_price": o.total_price,
+        "prints": [{"file": p.filename, "qty": p.copies} for p in o.print_requests],
+        "items": [{"name": Item.query.get(i.item_id).item_name, "qty": i.quantity} for i in o.stationery_items]
+    } for o in orders]), 200
 
 if __name__ == '__main__':
     with app.app_context():
+        #db.drop_all()
         db.create_all()
+        seed_inventory()
     app.run(debug=True, port=5000)

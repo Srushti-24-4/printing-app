@@ -31,3 +31,25 @@
 .floating-cart-bar { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: #1e293b; color: white; display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; border-radius: 50px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 1000; }
 .total-amt { font-size: 1.2rem; font-weight: 700; }
 .checkout-btn { background: #6a5cff; color: white; text-decoration: none; padding: 10px 20px; border-radius: 25px; font-weight: bold; }
+.timer-normal {
+  background: #edf2f7;
+  color: #4a5568;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-family: monospace;
+  font-weight: bold;
+}
+
+.timer-urgent {
+  background: #fff5f5;
+  color: #e53e3e;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-family: monospace;
+  font-weight: bold;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.5; }
+}

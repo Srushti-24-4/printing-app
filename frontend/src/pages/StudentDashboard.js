@@ -1,17 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import "./StudentDashboard.css";
+
+// Updated API Base URL
+const API_BASE_URL = "http://127.0.0.1:5000";
 
 function ProductCard({ item, quantity, onIncrement, onDecrement }) {
   return (
     <div className={`product-card ${item.isUrgent ? "urgent-border" : ""}`}>
       {item.isUrgent && <span className="urgent-badge">High Demand</span>}
       <div className="image-container">
-        <img src={item.image || "https://via.placeholder.com/150"} alt={item.name} />
+        {/* UPDATED: Points to the Flask upload route with a fallback */}
+        <img 
+          src={`${API_BASE_URL}/api/uploads/${item.image}`} 
+          alt={item.name} 
+          onError={(e) => {
+            e.target.onerror = null; 
+            e.target.src = 'https://via.placeholder.com/150?text=No+Image';
+          }}
+        />
       </div>
       <div className="product-info">
         <h3>{item.name}</h3>
+        <p className="category-label">{item.category}</p>
         <p className="price">₹{item.price}</p>
         
         <div className="quantity-controls">
@@ -32,20 +44,28 @@ function ProductCard({ item, quantity, onIncrement, onDecrement }) {
   );
 }
 
-const products = [
-  { id: 1, name: "Black Pen", price: 10, category: "Writing", isUrgent: false, image: "/images/black-pen.jpg" },
-  { id: 2, name: "Blue Pen", price: 10, category: "Writing", isUrgent: false, image: "/images/blue-pen.jpg" },
-  { id: 3, name: "Single Side Ruled Pages", price: 50, category: "Paper", isUrgent: true, image: "/images/single-side.jpeg" },
-  { id: 4, name: "Double Side Ruled Pages", price: 60, category: "Paper", isUrgent: false, image: "/images/double-side.jpeg" },
-  { id: 5, name: "Transparent Folder", price: 25, category: "Files", isUrgent: false, image: "/images/folder.png" },
-  { id: 8, name: "Eraser", price: 5, category: "Writing", isUrgent: false, image: "/images/eraser.jpg" },
-  { id: 9, name: "Transparent Scale", price: 15, category: "Writing", isUrgent: false, image: "/images/t-scale.jpg" },
-  { id: 10, name: "Steel Scale", price: 20, category: "Writing", isUrgent: false, image: "/images/s-scale.jpg" },
-];
-
 export default function StudentDashboard() {
   const { cart, addToCart, removeFromCart } = useCart();
   const [filter, setFilter] = useState("All");
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/items`)
+      .then(res => res.json())
+      .then(data => {
+        const formattedProducts = data.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          category: item.category || "Other",
+          isUrgent: item.stock < 10,
+          // Store only the filename from the DB
+          image: item.image 
+        }));
+        setProducts(formattedProducts);
+      })
+      .catch(err => console.error("Error loading inventory:", err));
+  }, []);
 
   const safeCart = cart || [];
   const totalItems = safeCart.reduce((sum, item) => sum + (item.quantity || 0), 0);
@@ -74,7 +94,8 @@ export default function StudentDashboard() {
       </div>
 
       <div className="filter-tabs">
-        {["All", "Writing", "Paper", "Files"].map(cat => (
+        {/* Updated categories to match your Shopkeeper selection */}
+        {["All", "Writing", "Sheets", "Files", "Other"].map(cat => (
           <button 
             key={cat} 
             className={filter === cat ? "tab active" : "tab"} 
@@ -86,27 +107,31 @@ export default function StudentDashboard() {
       </div>
 
       <div className="product-grid">
-        {filteredProducts.map((item) => {
-          const cartItem = safeCart.find(i => i.id === item.id);
-          const currentQty = cartItem ? cartItem.quantity : 0;
+        {filteredProducts.length > 0 ? (
+          filteredProducts.map((item) => {
+            const cartItem = safeCart.find(i => i.id === item.id);
+            const currentQty = cartItem ? cartItem.quantity : 0;
 
-          return (
-            <ProductCard 
-              key={item.id} 
-              item={item} 
-              quantity={currentQty}
-              onIncrement={() => addToCart(item)}
-              onDecrement={() => removeFromCart(item.id)}
-            />
-          );
-        })}
+            return (
+              <ProductCard 
+                key={item.id} 
+                item={item} 
+                quantity={currentQty}
+                onIncrement={() => addToCart(item)}
+                onDecrement={() => removeFromCart(item.id)}
+              />
+            );
+          })
+        ) : (
+          <p className="no-products">No items found in this category.</p>
+        )}
       </div>
 
       {totalItems > 0 && (
         <div className="floating-cart-bar">
           <div className="cart-info">
             <span className="item-count">{totalItems} Items selected</span>
-            <span className="total-amt">₹{totalPrice}</span>
+            <span className="total-amt">₹{totalPrice.toFixed(2)}</span>
           </div>
           <Link to="/cart" className="checkout-btn">Proceed to Cart →</Link>
         </div>

@@ -38,6 +38,7 @@ class Order(db.Model):
     # Relationships to get all children of this order
     details = db.relationship('OrderDetail', backref='parent_order', cascade="all, delete-orphan")
     prints = db.relationship('PrintRequest', backref='parent_order', cascade="all, delete-orphan")
+    ready_at = db.Column(db.DateTime, nullable=True)
 
 # 4. Stationery Order Details (Linked to Order)
 class OrderDetail(db.Model):
