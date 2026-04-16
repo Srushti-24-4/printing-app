@@ -6,6 +6,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash
 from pypdf import PdfReader
 from datetime import datetime, timezone
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
 app = Flask(__name__)
@@ -93,7 +94,46 @@ def seed_inventory():
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # --- Routes ---
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    try:
+        # Check if user already exists
+        if User.query.filter_by(moodle_id=data.get('moodle_id')).first():
+            return jsonify({"error": "Moodle ID already registered"}), 400
+        
+        new_user = User(
+            moodle_id=data.get('moodle_id'),
+            name=data.get('name'),
+            email=data.get('email'),
+            password=generate_password_hash(data.get('password')),
+            role=data.get('role', 'Student') # Defaults to Student
+        )
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({"message": "User registered successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    try:
+        user = User.query.filter_by(moodle_id=data.get('moodle_id')).first()
+        
+        if user and check_password_hash(user.password, data.get('password')):
+            return jsonify({
+                "message": "Login successful",
+                "user": {
+                    "moodle_id": user.moodle_id,
+                    "name": user.name,
+                    "role": user.role
+                }
+            }), 200
+        else:
+            return jsonify({"error": "Invalid Moodle ID or password"}), 401
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 @app.route('/api/items', methods=['GET'])
 def get_items():
     items = Item.query.all()
