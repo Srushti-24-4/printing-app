@@ -3,15 +3,31 @@ import "./ShopkeeperDashboard.css";
 
 const getCountdown = (readyAt) => {
   if (!readyAt) return null;
-  const expiryTime = new Date(new Date(readyAt).getTime() + 2 * 60 * 60 * 1000); 
+
+  // This replaces the 'T' with a space to help some browsers 
+  // treat the string as local time rather than UTC.
+  const dateString = readyAt.replace('T', ' ');
+  const readyTime = new Date(dateString);
+  
+  // Set window to 2 hours
+  const expiryTime = new Date(readyTime.getTime() + (2 * 60 * 60 * 1000)); 
   const now = new Date();
+  
   const diff = expiryTime - now;
 
-  if (diff <= 0) return { text: "EXPIRED", urgent: true };
-  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  const secs = Math.floor((diff % (1000 * 60)) / 1000);
+  // DEBUG LOG - Open your Console (F12) and check these values!
+  console.log(`Now: ${now.toLocaleTimeString()} | Expiry: ${expiryTime.toLocaleTimeString()}`);
 
-  return { text: `${mins}m ${secs}s left`, urgent: mins < 15 };
+  if (diff <= 0) return { text: "EXPIRED", urgent: true };
+
+  const totalSeconds = Math.floor(diff / 1000);
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+
+  return { 
+    text: `${mins}m ${secs.toString().padStart(2, '0')}s left`, 
+    urgent: mins < 15 
+  };
 };
 
 function ShopkeeperDashboard() {

@@ -20,7 +20,22 @@
   font-weight: 700;
   font-size: 1.5rem;
 }
+.student-timer {
+  background: #e7f3ff;
+  color: #007bff;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  text-align: center;
+  border-left: 5px solid #007bff;
+}
 
+.student-timer.urgent {
+  background: #fff0f0;
+  color: #d9534f;
+  border-left-color: #d9534f;
+  animation: blink 1s infinite; /* Optional: adds a little pulse */
+}
 .nav-right {
   display: flex;
   align-items: center;

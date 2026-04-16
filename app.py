@@ -1,12 +1,11 @@
 import pymysql
 pymysql.install_as_MySQLdb()
-from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
 from pypdf import PdfReader
-from flask import send_from_directory
+from datetime import datetime, timezone
 import os
 
 app = Flask(__name__)
@@ -21,6 +20,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 # --- Models ---
 class User(db.Model):
     __tablename__ = 'Users'
@@ -47,7 +47,7 @@ class Order(db.Model):
     order_token = db.Column(db.String(20), nullable=False) 
     total_price = db.Column(db.Float, default=0.0)
     status = db.Column(db.Enum('Pending', 'Processing', 'Done', 'Collected'), default='Pending')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     ready_at = db.Column(db.DateTime, nullable=True)
     
     print_requests = db.relationship('PrintRequest', backref='order', lazy=True, cascade="all, delete-orphan")
@@ -79,7 +79,6 @@ def seed_inventory():
             Item(item_name="Ruled Pages", price_per_unit=50.0, category="Paper", stock_qty=100)
         ]
         db.session.bulk_save_objects(items)
-        # Create a test student so login/orders don't fail immediately
         if User.query.filter_by(moodle_id="24102003").first() is None:
             test_user = User(
                 moodle_id="24102003", 
@@ -107,6 +106,19 @@ def get_items():
         "image": i.image_url
     } for i in items]), 200
 
+@app.route('/api/admin/orders', methods=['GET'])
+def admin_orders():
+    orders = Order.query.filter(Order.status != 'Collected').order_by(Order.created_at.desc()).all()
+    return jsonify([{
+        "id": o.order_id,
+        "moodle_id": User.query.get(o.user_id).moodle_id,
+        "status": o.status,
+        "total": o.total_price,
+        "ready_at": o.ready_at.isoformat() if o.ready_at else None,
+        "items": [{"name": Item.query.get(i.item_id).item_name, "qty": i.quantity} for i in o.stationery_items],
+        "prints": [{"file": p.filename, "copies": p.copies} for p in o.print_requests]
+    } for o in orders]), 200
+
 @app.route('/api/order', methods=['POST'])
 def place_order():
     try:
@@ -120,7 +132,6 @@ def place_order():
             db.session.add(active_order)
             db.session.flush()
 
-        # Print logic
         if 'file' in request.files:
             file = request.files['file']
             copies = int(request.form.get('copies', 1))
@@ -131,7 +142,6 @@ def place_order():
             db.session.add(PrintRequest(order_id=active_order.order_id, filename=file.filename, pages=pages, copies=copies, price=price))
             active_order.total_price += price
 
-        # Stationery logic
         item_name = request.form.get('item_name')
         if item_name:
             item = Item.query.filter_by(item_name=item_name).first()
@@ -146,20 +156,18 @@ def place_order():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
 @app.route('/api/admin/inventory/add', methods=['POST'])
 def add_item():
     try:
-        # Check if an image file was uploaded
         image_path = None
         if 'image' in request.files:
             file = request.files['image']
             if file and allowed_file(file.filename):
                 filename = file.filename
-                # Save it to your upload folder
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                image_path = filename # Store just the name
+                image_path = filename
 
-        # Get the rest of the data from form-data (since we are sending a file)
         new_item = Item(
             item_name=request.form.get('name'),
             price_per_unit=float(request.form.get('price')),
@@ -183,33 +191,19 @@ def update_status():
             new_status = data.get('status')
             order.status = new_status
             if new_status == 'Done':
-                order.ready_at = datetime.utcnow()
+                # Use plain local time
+                order.ready_at = datetime.now() 
             db.session.commit()
             return jsonify({"message": "Status updated"}), 200
-        return jsonify({"error": "Order not found"}), 404
     except Exception as e:
-        db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-# Route to serve uploaded files for the shopkeeper to print
+    
 @app.route('/api/download/<filename>')
 def download_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-@app.route('/api/admin/orders', methods=['GET'])
-def admin_orders():
-    orders = Order.query.filter(Order.status != 'Collected').order_by(Order.created_at.desc()).all()
-    return jsonify([{
-        "id": o.order_id,
-        "moodle_id": User.query.get(o.user_id).moodle_id,
-        "status": o.status,
-        "total": o.total_price,
-        "items": [{"name": Item.query.get(i.item_id).item_name, "qty": i.quantity} for i in o.stationery_items],
-        "prints": [{"file": p.filename, "copies": p.copies} for p in o.print_requests]
-    } for o in orders]), 200
 @app.route('/api/uploads/<filename>')
 def serve_image(filename):
-    # This sends the file from your actual folder on the computer to the browser
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/api/user/orders/<moodle_id>', methods=['GET'])
@@ -218,14 +212,17 @@ def get_user_orders(moodle_id):
     if not user: return jsonify([]), 200
     orders = Order.query.filter(Order.user_id == user.user_id, Order.status != 'Collected').all()
     return jsonify([{
-        "id": o.order_id, "token": o.order_token, "status": o.status, "total_price": o.total_price,
+        "id": o.order_id, 
+        "token": o.order_token, 
+        "status": o.status, 
+        "total_price": o.total_price,
+        "ready_at": o.ready_at.isoformat() if o.ready_at else None,
         "prints": [{"file": p.filename, "qty": p.copies} for p in o.print_requests],
         "items": [{"name": Item.query.get(i.item_id).item_name, "qty": i.quantity} for i in o.stationery_items]
     } for o in orders]), 200
 
 if __name__ == '__main__':
     with app.app_context():
-        #db.drop_all()
         db.create_all()
         seed_inventory()
     app.run(debug=True, port=5000)
