@@ -147,6 +147,7 @@ function ShopkeeperDashboard() {
                         <option value="Writing">Writing</option>
                         <option value="Sheets">Sheets</option>
                         <option value="Files">Files</option>
+                        <option value="other">Others</option>
                     </select>
                     <input type="file" onChange={e => setImageFile(e.target.files[0])} />
                     <button type="submit">Save</button>
