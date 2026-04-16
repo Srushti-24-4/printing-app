@@ -159,6 +159,7 @@ def place_order():
             db.session.add(active_order)
             db.session.flush()
 
+        # Handle Print Requests (Pages/Price)
         if 'file' in request.files:
             file = request.files['file']
             copies = int(request.form.get('copies', 1))
@@ -169,21 +170,38 @@ def place_order():
             db.session.add(PrintRequest(order_id=active_order.order_id, filename=file.filename, pages=pages, copies=copies, price=price))
             active_order.total_price += price
 
+        # --- UPDATED: Stationery Items & Stock Reduction ---
         item_name = request.form.get('item_name')
         if item_name:
             item = Item.query.filter_by(item_name=item_name).first()
             if item:
                 qty = int(request.form.get('item_qty', 1))
-                subtotal = item.price_per_unit * qty
-                db.session.add(OrderDetail(order_id=active_order.order_id, item_id=item.item_id, quantity=qty, subtotal=subtotal))
-                active_order.total_price += subtotal
+                
+                # Check if enough stock is available
+                if item.stock_qty >= qty:
+                    # SUBTRACT from inventory
+                    item.stock_qty -= qty 
+                    
+                    subtotal = item.price_per_unit * qty
+                    db.session.add(OrderDetail(
+                        order_id=active_order.order_id, 
+                        item_id=item.item_id, 
+                        quantity=qty, 
+                        subtotal=subtotal
+                    ))
+                    active_order.total_price += subtotal
+                else:
+                    return jsonify({"error": f"Only {item.stock_qty} units of {item.item_name} left in stock!"}), 400
+            else:
+                return jsonify({"error": "Item not found in inventory"}), 404
 
         db.session.commit()
         return jsonify({"token": active_order.order_token, "total": active_order.total_price}), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
+    
 @app.route('/api/admin/inventory/add', methods=['POST'])
 def add_item():
     try:
