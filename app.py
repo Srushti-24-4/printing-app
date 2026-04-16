@@ -105,6 +105,24 @@ def get_items():
         "stock": i.stock_qty,
         "image": i.image_url
     } for i in items]), 200
+@app.route('/api/admin/sales-stats', methods=['GET'])
+def get_sales_stats():
+    # Gets total revenue from all orders ever completed/collected
+    total_revenue = db.session.query(db.func.sum(Order.total_price)).filter(
+        Order.status.in_(['Done', 'Collected'])
+    ).scalar() or 0.0
+    
+    # Optional: Get today's revenue only
+    today = datetime.now().date()
+    daily_revenue = db.session.query(db.func.sum(Order.total_price)).filter(
+        db.func.date(Order.created_at) == today,
+        Order.status.in_(['Done', 'Collected'])
+    ).scalar() or 0.0
+
+    return jsonify({
+        "total_revenue": total_revenue,
+        "daily_revenue": daily_revenue
+    })
 
 @app.route('/api/admin/orders', methods=['GET'])
 def admin_orders():
@@ -118,6 +136,15 @@ def admin_orders():
         "items": [{"name": Item.query.get(i.item_id).item_name, "qty": i.quantity} for i in o.stationery_items],
         "prints": [{"file": p.filename, "copies": p.copies} for p in o.print_requests]
     } for o in orders]), 200
+
+@app.route('/api/admin/inventory/delete/<int:item_id>', methods=['DELETE'])
+def delete_item(item_id):
+    item = Item.query.get(item_id)
+    if item:
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify({"message": "Deleted"}), 200
+    return jsonify({"error": "Not found"}), 404
 
 @app.route('/api/order', methods=['POST'])
 def place_order():
