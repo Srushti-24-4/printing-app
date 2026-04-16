@@ -5,7 +5,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash
 from pypdf import PdfReader
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
@@ -18,6 +18,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 db = SQLAlchemy(app)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+def get_ist_time():
+    # UTC + 5:30
+    return datetime.utcnow() + timedelta(hours=5, minutes=30)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -47,13 +50,16 @@ class Order(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('Users.user_id'), nullable=False)
     order_token = db.Column(db.String(20), nullable=False) 
     total_price = db.Column(db.Float, default=0.0)
-    status = db.Column(db.Enum('Pending', 'Processing', 'Done', 'Collected'), default='Pending')
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    status = db.Column(db.Enum('Pending', 'Processing', 'Done', 'Collected', 'Cancelled'), default='Pending')
+    
+    # This is the line that fixes your Daily Sales!
+    created_at = db.Column(db.DateTime, default=get_ist_time)
+    
     ready_at = db.Column(db.DateTime, nullable=True)
     
+    # Relationships
     print_requests = db.relationship('PrintRequest', backref='order', lazy=True, cascade="all, delete-orphan")
     stationery_items = db.relationship('OrderDetail', backref='order', lazy=True, cascade="all, delete-orphan")
-
 class PrintRequest(db.Model):
     __tablename__ = 'Print_Requests'
     print_id = db.Column(db.Integer, primary_key=True)
@@ -145,25 +151,37 @@ def get_items():
         "stock": i.stock_qty,
         "image": i.image_url
     } for i in items]), 200
+from datetime import datetime
+
+from datetime import datetime, time
+
 @app.route('/api/admin/sales-stats', methods=['GET'])
 def get_sales_stats():
-    # Gets total revenue from all orders ever completed/collected
-    total_revenue = db.session.query(db.func.sum(Order.total_price)).filter(
-        Order.status.in_(['Done', 'Collected'])
-    ).scalar() or 0.0
+    try:
+        # Get 'Today' in IST
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        ist_today = ist_now.date()
+        
+        # Filter orders where the date matches IST today
+        daily_orders = Order.query.filter(
+            db.func.date(Order.created_at) == ist_today,
+            Order.status != 'Cancelled'
+        ).all()
+        
+        daily_revenue = sum(order.total_price for order in daily_orders)
+        
+        # Lifetime Revenue
+        total_orders_list = Order.query.filter(Order.status != 'Cancelled').all()
+        total_revenue = sum(order.total_price for order in total_orders_list)
+        
+        return jsonify({
+            "daily_revenue": round(daily_revenue, 2),
+            "total_revenue": round(total_revenue, 2),
+            "order_count": len(daily_orders)
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     
-    # Optional: Get today's revenue only
-    today = datetime.now().date()
-    daily_revenue = db.session.query(db.func.sum(Order.total_price)).filter(
-        db.func.date(Order.created_at) == today,
-        Order.status.in_(['Done', 'Collected'])
-    ).scalar() or 0.0
-
-    return jsonify({
-        "total_revenue": total_revenue,
-        "daily_revenue": daily_revenue
-    })
-
 @app.route('/api/admin/orders', methods=['GET'])
 def admin_orders():
     orders = Order.query.filter(Order.status != 'Collected').order_by(Order.created_at.desc()).all()
