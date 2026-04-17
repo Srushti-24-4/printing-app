@@ -58,15 +58,7 @@ function MyOrders() {
 
   return (
     <div className="orders-container">
-      <div className="navbar">
-        <h2>Campus Store</h2>
-        <div className="nav-links">
-          <Link to="/student-dashboard">Products</Link>
-          <Link to="/printing-page">Printing</Link>
-          <Link to="/my-orders" className="active">My Orders</Link>
-          <Link to="/cart">🛒</Link>
-        </div>
-      </div>
+      
 
       <div className="orders-content">
         <h1>Your Active Tokens</h1>

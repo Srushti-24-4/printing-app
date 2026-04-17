@@ -252,7 +252,7 @@ function OrderCard({ order, updateStatus, API_BASE_URL, isDone }) {
                 </div>
             )}
             <div className="card-footer">
-                <span>₹{order.total_price}</span>
+                <span>₹{order.total}               </span>
                 <button 
                     className={isDone ? "btn-collect" : "btn-ready"} 
                     onClick={() => updateStatus(order.id, isDone ? "Collected" : "Done")}

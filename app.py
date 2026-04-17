@@ -133,7 +133,7 @@ def login():
                 "user": {
                     "moodle_id": user.moodle_id,
                     "name": user.name,
-                    "role": user.role
+                    
                 }
             }), 200
         else:
@@ -230,10 +230,16 @@ def place_order():
         if 'file' in request.files:
             file = request.files['file']
             copies = int(request.form.get('copies', 1))
+            print_type = request.form.get('print_type', 'bw')
             path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
             file.save(path)
             pages = len(PdfReader(path).pages)
-            price = (pages * 2.0) * copies
+            if print_type == 'color':
+                rate = 10.0  # ₹10 for Color
+            else:
+                rate = 2.0   # ₹2 for Black & White
+    
+            price = (pages * rate) * copies
             db.session.add(PrintRequest(order_id=active_order.order_id, filename=file.filename, pages=pages, copies=copies, price=price))
             active_order.total_price += price
 

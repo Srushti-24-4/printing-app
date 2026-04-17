@@ -2,49 +2,49 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import "./Login.css";
 
-function Login() {
+function Login({ setUser }) {
   const [moodleId, setMoodleId] = useState(""); // Using Moodle ID instead of email
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    
-    try {
-      const response = await fetch("http://127.0.0.1:5000/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          moodle_id: moodleId, 
-          password: password 
-        }),
-      });
+  e.preventDefault();
+  
+  try {
+    const response = await fetch("http://127.0.0.1:5000/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        moodle_id: moodleId, 
+        password: password 
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok) {
-        // ✅ SAVE USER DATA: This is crucial for the rest of your app!
-        localStorage.setItem("user", JSON.stringify({
-          moodle_id: data.user.moodle_id,
-          name: data.user.name,
-          role: data.user.role
-        }));
+    if (response.ok) {
+      const loggedInUser = data.user;
 
-        // Redirect based on the role returned by the database
-        if (data.user.role === "Admin") {
-          navigate("/shopkeeper-dashboard");
-        } else {
-          navigate("/student-dashboard");
-        }
-      } else {
-        alert(data.error || "Login failed. Check your ID and password.");
+      // 1. Save to LocalStorage (for page refreshes)
+      localStorage.setItem("user", JSON.stringify(loggedInUser));
+
+      // 2. IMPORTANT: Update the App State!
+      // This 'setUser' must be passed as a prop from App.js to Login.js
+      if (typeof setUser === "function") {
+        setUser(loggedInUser);
       }
-    } catch (error) {
-      console.error("Login Error:", error);
-      alert("Server is offline. Make sure your Flask app is running!");
-    }
-  };
 
+      // 3. Now navigate
+      console.log("Login successful, redirecting to student dashboard...");
+  navigate("/student-dashboard", { replace: true });
+    } else {
+      alert(data.error || "Login failed.");
+    }
+  } catch (error) {
+    console.error("Login Error:", error);
+    alert("Server is offline.");
+  }
+};
   return (
     <div className="login-container">
       <div className="login-card">

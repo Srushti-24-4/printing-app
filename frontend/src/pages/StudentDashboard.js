@@ -100,16 +100,7 @@ export default function StudentDashboard() {
 
   return (
     <div className="dashboard-container">
-      <nav className="navbar">
-        <div className="nav-brand">Campus Store</div>
-        <div className="nav-links">
-          <Link to="/printing-page">Printing</Link>
-          <Link to="/my-orders">Orders</Link>
-          <Link to="/cart" className="cart-nav">
-            🛒 {totalItems > 0 && <span className="nav-badge">{totalItems}</span>}
-          </Link>
-        </div>
-      </nav>
+    
 
       <div className="banner">
         <h1>Campus Stationery</h1>

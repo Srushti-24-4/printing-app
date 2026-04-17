@@ -48,16 +48,6 @@ function Cart() {
 
   return (
     <div className="cart-container">
-      <div className="navbar">
-        <h2>Campus Stationery</h2>
-        <div className="nav-links">
-          <Link to="/student-dashboard"><span>Products</span></Link>
-          <Link to="/printing-page"><span>Printing</span></Link>
-          <Link to="/my-orders"><span>My Orders</span></Link>
-          <Link to="/cart"><span className="active">🛒</span></Link>
-          <span>👤</span>
-        </div>
-      </div>
 
       <div className="cart-content">
         <h1>Final Bill Summary</h1>
