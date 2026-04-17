@@ -17,7 +17,7 @@ import Cart from "./pages/Cart";
 function App() {
   const location = useLocation();
   
-  // Initialize state from LocalStorage
+  // 1. Initialize state from LocalStorage immediately to prevent "flicker"
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("user");
     try {
@@ -27,50 +27,68 @@ function App() {
     }
   });
 
+  // 2. Centralized Home Logic
+  const getHomeRoute = () => {
+    if (!user) return "/";
+    return user.role === "Admin" ? "/shopkeeper-dashboard" : "/student-dashboard";
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     setUser(null);
-    window.location.href = "/"; // Force clean redirect
+    window.location.href = "/"; 
   };
 
-  // Define which paths should NOT have a navbar
-  // Note: Added /shopkeeper-dashboard and /inventory to hide list 
+  // 3. Navbar visibility logic
   const hideNavbarOn = ["/", "/register", "/shopkeeper-dashboard", "/inventory"];
   const shouldShowNavbar = user && !hideNavbarOn.includes(location.pathname);
 
   return (
     <div className="app-container">
+      {/* Show Navbar only for Student routes where it is needed */}
       {shouldShowNavbar && <Navbar user={user} onLogout={handleLogout} />}
       
       <Routes>
-        {/* Updated root route to handle both roles */}
+        {/* PUBLIC ROUTES */}
         <Route 
           path="/" 
-          element={
-            !user ? (
-              <Login setUser={setUser} />
-            ) : user.role === "Admin" ? (
-              <Navigate to="/shopkeeper-dashboard" />
-            ) : (
-              <Navigate to="/student-dashboard" />
-            )
-          } 
+          element={!user ? <Login setUser={setUser} /> : <Navigate to={getHomeRoute()} replace />} 
+        />
+        <Route 
+          path="/register" 
+          element={!user ? <Register /> : <Navigate to={getHomeRoute()} replace />} 
         />
 
-        <Route path="/register" element={<Register />} />
+        {/* STUDENT PROTECTED ROUTES (Admin cannot access) */}
+        <Route 
+          path="/student-dashboard" 
+          element={user && user.role === "Student" ? <StudentDashboard /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="/my-orders" 
+          element={user && user.role === "Student" ? <MyOrders /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="/printing-page" 
+          element={user && user.role === "Student" ? <PrintingPage /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="/cart" 
+          element={user && user.role === "Student" ? <Cart /> : <Navigate to="/" replace />} 
+        />
+        
+        {/* ADMIN PROTECTED ROUTES (Student cannot access) */}
+        <Route 
+          path="/shopkeeper-dashboard" 
+          element={user && user.role === "Admin" ? <ShopkeeperDashboard /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="/inventory" 
+          element={user && user.role === "Admin" ? <InventoryPage /> : <Navigate to="/" replace />} 
+        />
 
-        {/* Student Protected Routes */}
-        <Route path="/student-dashboard" element={user ? <StudentDashboard /> : <Navigate to="/" />} />
-        <Route path="/my-orders" element={user ? <MyOrders /> : <Navigate to="/" />} />
-        <Route path="/printing-page" element={user ? <PrintingPage /> : <Navigate to="/" />} />
-        <Route path="/cart" element={user ? <Cart /> : <Navigate to="/" />} />
-        
-        {/* Admin Protected Routes */}
-        <Route path="/shopkeeper-dashboard" element={user && user.role === "Admin" ? <ShopkeeperDashboard /> : <Navigate to="/" />} />
-        <Route path="/inventory" element={user && user.role === "Admin" ? <InventoryPage /> : <Navigate to="/" />} />
-        
-        {/* Catch-all redirect */}
-        <Route path="*" element={<Navigate to="/" />} />
+        {/* CATCH-ALL: Redirect any unknown URL to root */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );

@@ -9,51 +9,49 @@ function Login({ setUser }) {
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // 1. Check for Hardcoded Admin Credentials first
-    if (role === "Admin" && moodleId === "admin" && password === "admin1234") {
-      const adminUser = {
-        moodle_id: "admin",
-        name: "Shopkeeper",
-        role: "Admin",
+  // --- ADMIN HARDCODED CHECK ---
+  if (role === "Admin") {
+    if (moodleId === "admin" && password === "admin1234") {
+      const adminUser = { 
+        name: "Shopkeeper", 
+        role: "Admin" 
+        // Notice: No moodle_id stored here as requested
       };
 
       localStorage.setItem("user", JSON.stringify(adminUser));
-      if (typeof setUser === "function") setUser(adminUser);
-      
-      window.location.href = "/shopkeeper-dashboard";
-      return; // Exit function so it doesn't try to call the backend
+      setUser(adminUser);
+      window.location.href = "/shopkeeper-dashboard"; 
+      return;
+    } else {
+      alert("Invalid Admin Credentials");
+      return;
     }
+  }
 
-    // 2. Otherwise, proceed with the Student Backend Login
-    try {
-      const response = await fetch("http://127.0.0.1:5000/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          moodle_id: moodleId,
-          password: password,
-          role: role,
-        }),
-      });
+  // --- STUDENT BACKEND CHECK ---
+  try {
+    const response = await fetch("http://127.0.0.1:5000/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ moodle_id: moodleId, password: password }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok) {
-        const loggedInUser = data.user;
-        localStorage.setItem("user", JSON.stringify(loggedInUser));
-        if (typeof setUser === "function") setUser(loggedInUser);
-        
-        window.location.href = "/student-dashboard";
-      } else {
-        alert(data.error || "Login failed.");
-      }
-    } catch (error) {
-      console.error("Login Error:", error);
-      alert("Server is offline.");
+    if (response.ok) {
+      const studentUser = { ...data.user, role: "Student" }; // Ensure role is set
+      localStorage.setItem("user", JSON.stringify(studentUser));
+      setUser(studentUser);
+      window.location.href = "/student-dashboard";
+    } else {
+      alert(data.error || "Login failed.");
     }
-  };
+  } catch (error) {
+    alert("Server is offline.");
+  }
+};
 
   return (
     <div className="login-container">
